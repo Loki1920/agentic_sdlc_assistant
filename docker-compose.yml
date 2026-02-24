@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+
+  # ──────────────────────────────────────────────────────────────
+  # Main application: Jira poller + LangGraph agent workflows
+  # ──────────────────────────────────────────────────────────────
+  sdlc_assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sdlc_assistant
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SQLITE_DB_PATH=/app/data/sdlc_assistant.db
+      - ACTIVITY_LOG_PATH=/app/logs/activity.jsonl
+      - LLM_LOG_PATH=/app/logs/llm_calls.jsonl
+    volumes:
+      # Persist SQLite database across container restarts
+      - sdlc_data:/app/data
+      # Persist log files across container restarts
+      - sdlc_logs:/app/logs
+      # Mount AWS credentials read-only (for Bedrock access)
+      - ${HOME}/.aws:/root/.aws:ro
+    networks:
+      - sdlc_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "from scheduler.poller import is_scheduler_running; assert is_scheduler_running()"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - sdlc_metrics
+
+  # ──────────────────────────────────────────────────────────────
+  # Metrics dashboard: FastAPI server on port 8080
+  # GET  http://localhost:8080/metrics   — JSON KPI report
+  # POST http://localhost:8080/pr/{run_id}/approve  — mark PR approved
+  # POST http://localhost:8080/pr/{run_id}/reject   — mark PR rejected
+  # ──────────────────────────────────────────────────────────────
+  sdlc_metrics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sdlc_metrics
+    command: ["python", "main.py", "--mode", "metrics-server"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - SQLITE_DB_PATH=/app/data/sdlc_assistant.db
+      - METRICS_PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - sdlc_data:/app/data   # Shared read-write access to SQLite
+      - sdlc_logs:/app/logs:ro
+    networks:
+      - sdlc_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  sdlc_data:
+    driver: local
+  sdlc_logs:
+    driver: local
+
+networks:
+  sdlc_net:
+    driver: bridge

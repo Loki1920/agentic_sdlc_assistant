@@ -1,0 +1,48 @@
+# Environment
+.env
+*.env
+
+# Data and logs (generated at runtime)
+data/
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+docker-volumes/
+
+# AWS / credential files
+*.csv
+*accessKeys*
+*access_keys*
+
+# Claude Code local config
+.claude/
+
+# Miscellaneous generated files
+=*
