@@ -1,18 +1,38 @@
-# AI Agentic SDLC Assistant — POC
+# AI Agentic SDLC Assistant
 
-An AI-powered SDLC automation system that monitors Jira tickets, validates their completeness,
-analyzes a GitHub repository, and generates implementation plans, code proposals, test suggestions,
-and Draft Pull Requests for human review.
+> An AI-powered automation system that monitors Jira tickets, validates their completeness, analyzes a GitHub repository, and autonomously generates implementation plans, code proposals, test suggestions, and Draft Pull Requests — all for human review.
 
 ---
 
-## POC Success Criteria
+## Table of Contents
 
-| KPI | Target | Description |
-|-----|--------|-------------|
-| PR Approval Rate | ≥ 33% | At least 1 in 3 AI-generated PRs designated "ready-to-deploy" by peer review |
-| Incomplete Ticket Detection | ≥ 50% | At least half of tickets with missing/inadequate info flagged automatically |
-| Error-Free Runs | ≥ 10 consecutive | End-to-end processing without rate limits, timeouts, or crashes |
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [POC Success Criteria](#poc-success-criteria)
+- [Prerequisites](#prerequisites)
+- [Quick Start (Local)](#quick-start-local)
+- [Docker Compose](#docker-compose)
+- [Configuration Reference](#configuration-reference)
+- [KPI Tracking](#kpi-tracking)
+- [Agent Modularity](#agent-modularity)
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [Logging](#logging)
+
+---
+
+## Overview
+
+The Agentic SDLC Assistant connects Jira and GitHub through a multi-agent LangGraph workflow powered by Amazon Bedrock (Claude 3.5 Sonnet). When a Jira ticket moves to **"Ready for Dev"**, the system:
+
+1. Validates the ticket is complete enough to act on
+2. Scouts the target GitHub repository for context
+3. Generates a structured implementation plan
+4. Proposes concrete code changes
+5. Suggests unit tests
+6. Opens a Draft Pull Request for human review
+
+All decisions, LLM calls, and outcomes are persisted to SQLite and exposed via a metrics API.
 
 ---
 
@@ -21,34 +41,46 @@ and Draft Pull Requests for human review.
 ```
 Jira (via MCP)
     │
-    ▼ Poll every N minutes
+    ▼  Poll every N minutes
 Scheduler (APScheduler)
     │
-    ▼ For each new "Ready for Dev" ticket
+    ▼  For each new "Ready for Dev" ticket
 LangGraph Workflow
-    ├── Ticket Fetcher      → fetch ticket from Jira MCP
-    ├── Completeness Agent  → score ticket quality (LLM)
-    │     ├── [incomplete]  → post Jira comment + label → STOP
-    │     └── [complete]    → continue
-    ├── Repo Scout          → analyse GitHub repo (GitHub MCP + LLM)
-    ├── Planner             → generate implementation plan (LLM)
-    ├── Code Proposal       → generate code changes (LLM)
-    ├── Test Agent          → suggest unit tests (LLM)
-    └── PR Composer         → create Draft PR (GitHub MCP)
+    ├── Ticket Fetcher      →  Fetch ticket details from Jira MCP
+    ├── Completeness Agent  →  Score ticket quality (LLM)
+    │     ├── [incomplete]  →  Post Jira comment + label → STOP
+    │     └── [complete]    →  Continue
+    ├── Repo Scout          →  Analyse GitHub repo (GitHub MCP + LLM)
+    ├── Planner             →  Generate implementation plan (LLM)
+    ├── Code Proposal       →  Generate code changes (LLM)
+    ├── Test Agent          →  Suggest unit tests (LLM)
+    └── PR Composer         →  Create Draft PR (GitHub MCP)
 
-SQLite ─── Logs (JSONL) ─── Metrics API (FastAPI :8080)
+SQLite ── Logs (JSONL) ── Metrics API (FastAPI :8080)
 ```
+
+---
+
+## POC Success Criteria
+
+| KPI | Target | Description |
+|-----|--------|-------------|
+| PR Approval Rate | ≥ 33% | At least 1 in 3 AI-generated PRs marked "ready-to-deploy" by peer review |
+| Incomplete Ticket Detection | ≥ 50% | At least half of tickets with missing/inadequate info flagged automatically |
+| Error-Free Runs | ≥ 10 consecutive | End-to-end processing without rate limits, timeouts, or crashes |
 
 ---
 
 ## Prerequisites
 
-- Python 3.12+
-- Node.js 20+ (for `npx @modelcontextprotocol/server-github`)
-- `uv` Python package manager (for `uvx mcp-atlassian`)
-- AWS account with Bedrock enabled and `anthropic.claude-3-5-sonnet-20241022-v2:0` model access
-- Jira Cloud account (free tier works)
-- GitHub Personal Access Token with `repo` scope
+| Requirement | Notes |
+|-------------|-------|
+| Python 3.12+ | |
+| Node.js 20+ | For `npx @modelcontextprotocol/server-github` |
+| `uv` package manager | For `uvx mcp-atlassian` |
+| AWS account with Bedrock enabled | Model: `anthropic.claude-3-5-sonnet-20241022-v2:0` |
+| Jira Cloud account | Free tier works |
+| GitHub Personal Access Token | Requires `repo` scope |
 
 ---
 
@@ -57,9 +89,10 @@ SQLite ─── Logs (JSONL) ─── Metrics API (FastAPI :8080)
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_ORG/agentic-sdlc-assistant.git
-cd agentic-sdlc-assistant
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+git clone https://github.com/Loki1920/agentic_sdlc_assistant.git
+cd agentic_sdlc_assistant
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -71,32 +104,32 @@ npm install -g @modelcontextprotocol/server-github
 
 # Jira MCP (via uv)
 pip install uv
-uvx mcp-atlassian --help   # verifies installation
+uvx mcp-atlassian --help        # verifies installation
 ```
 
-### 3. Configure
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env — fill in ALL required values:
+# Open .env and fill in all required values:
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 #   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
 #   GITHUB_PERSONAL_ACCESS_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME
 ```
 
-### 4. Run against a single ticket (dry-run first)
+### 4. Dry-run against a single ticket
 
 ```bash
 python main.py --mode single --ticket PROJ-123 --dry-run
 ```
 
-### 5. Run scheduler (polls Jira every 5 minutes)
+### 5. Run the scheduler (polls Jira every 5 minutes)
 
 ```bash
 python main.py --mode scheduler
 ```
 
-### 6. Check POC metrics
+### 6. View POC metrics
 
 ```bash
 python main.py --mode metrics
@@ -107,14 +140,16 @@ python main.py --mode metrics
 ## Docker Compose
 
 ```bash
-# Build and start both services
-cp .env.example .env   # fill in credentials
+# Copy and fill in credentials
+cp .env.example .env
+
+# Build and start all services
 docker compose up --build -d
 
-# View logs
+# Stream logs
 docker compose logs -f sdlc_assistant
 
-# Check metrics
+# Check metrics endpoint
 curl http://localhost:8080/metrics | python -m json.tool
 
 # Stop
@@ -123,36 +158,62 @@ docker compose down
 
 ---
 
+## Configuration Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AWS_DEFAULT_REGION` | Yes | `us-east-1` | AWS region for Bedrock |
+| `AWS_ACCESS_KEY_ID` | Yes | — | AWS credentials |
+| `AWS_SECRET_ACCESS_KEY` | Yes | — | AWS credentials |
+| `BEDROCK_MODEL_ID` | No | `anthropic.claude-3-5-sonnet-20241022-v2:0` | Bedrock model ID |
+| `JIRA_URL` | Yes | — | e.g. `https://myorg.atlassian.net` |
+| `JIRA_USERNAME` | Yes | — | Jira account email |
+| `JIRA_API_TOKEN` | Yes | — | Jira API token |
+| `JIRA_POLL_JQL` | No | `status = "Ready for Dev"` | JQL query for polling |
+| `JIRA_POLL_INTERVAL_SECONDS` | No | `300` | Poll frequency in seconds |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Yes | — | GitHub PAT with `repo` scope |
+| `GITHUB_REPO_OWNER` | Yes | — | GitHub org or username |
+| `GITHUB_REPO_NAME` | Yes | — | Repository name |
+| `GITHUB_BASE_BRANCH` | No | `main` | Target branch for PRs |
+| `COMPLETENESS_THRESHOLD` | No | `0.65` | Min score to consider a ticket complete |
+| `DRY_RUN` | No | `false` | If `true`, skips Jira comments and GitHub PR creation |
+
+---
+
 ## KPI Tracking
 
 ### KPI 1 — PR Approval Rate
 
-1. The system creates Draft PRs automatically
-2. Human reviewers review the PR
-3. Mark outcome via the metrics API:
-   ```bash
-   # Find run_id from SQLite or logs
-   curl -X POST http://localhost:8080/pr/{run_id}/approve   # approved
-   curl -X POST http://localhost:8080/pr/{run_id}/reject    # rejected
-   ```
-4. PR outcomes are also reconciled automatically every hour via GitHub MCP
+The system creates Draft PRs automatically. Human reviewers assess each one, then record the outcome:
+
+```bash
+# Approved
+curl -X POST http://localhost:8080/pr/{run_id}/approve
+
+# Rejected
+curl -X POST http://localhost:8080/pr/{run_id}/reject
+```
+
+PR outcomes are also reconciled automatically every hour via the GitHub MCP.
 
 ### KPI 2 — Incomplete Ticket Detection
 
-1. System automatically flags tickets scoring below `COMPLETENESS_THRESHOLD` (default: 0.65)
-2. Add ground-truth labels to measure accuracy:
-   ```bash
-   # Mark a ticket as truly incomplete (human ground truth)
-   python -m metrics.label_ticket PROJ-123 --truly-incomplete --labeled-by "Alice"
+Tickets scoring below `COMPLETENESS_THRESHOLD` are flagged automatically. Add ground-truth labels to measure accuracy:
 
-   # Mark as complete
-   python -m metrics.label_ticket PROJ-123 --complete --labeled-by "Alice"
-   ```
-3. KPI computed as: `true_positives / total_truly_incomplete_tickets`
+```bash
+# Mark a ticket as truly incomplete (human label)
+python -m metrics.label_ticket PROJ-123 --truly-incomplete --labeled-by "Alice"
+
+# Mark as complete
+python -m metrics.label_ticket PROJ-123 --complete --labeled-by "Alice"
+```
+
+KPI is computed as: `true_positives / total_truly_incomplete_tickets`
 
 ### KPI 3 — Error-Free Runs
 
-Tracked automatically. Count visible in:
+Tracked automatically and visible via:
+
 ```bash
 python main.py --mode metrics
 curl http://localhost:8080/metrics
@@ -160,25 +221,52 @@ curl http://localhost:8080/metrics
 
 ---
 
-## Logging
+## Agent Modularity
 
-All logs are in JSON Lines format (one JSON object per line).
+Each agent is an independent class that inherits from `BaseAgent`. The LangGraph graph in `agents/supervisor.py` wires them together via `WorkflowState`.
 
-| File | Content |
-|------|---------|
-| `logs/activity.jsonl` | Workflow events, agent lifecycle, MCP tool calls, errors |
-| `logs/llm_calls.jsonl` | Every LLM invocation: prompt, response, tokens, latency |
-
-### View recent LLM calls
-
-```bash
-tail -f logs/llm_calls.jsonl | python -m json.tool
+```
+agents/
+├── base_agent.py            BaseAgent (shared interface)
+├── ticket_fetcher.py        TicketFetcherAgent
+├── completeness_agent.py    CompletenessAgent + PostClarificationAgent
+├── repo_scout_agent.py      RepoScoutAgent
+├── planner_agent.py         PlannerAgent
+├── code_proposal_agent.py   CodeProposalAgent
+├── test_agent.py            TestAgent
+└── pr_composer_agent.py     PRComposerAgent
 ```
 
-### View errors only
+To add, remove, or replace an agent:
+1. Create or modify the agent class in `agents/`
+2. Update `agents/supervisor.py` — add/remove nodes and edges in the LangGraph graph
+3. State flows automatically through `WorkflowState` — no other files need to change
 
-```bash
-grep '"level": "ERROR"' logs/activity.jsonl | python -m json.tool
+---
+
+## Project Structure
+
+```
+agentic_sdlc_assistant/
+├── main.py                  CLI entry point (single / scheduler / metrics modes)
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example             Template — copy to .env and fill in credentials
+├── conftest.py              Pytest shared fixtures
+├── config/                  Settings (Pydantic) + logging config
+├── schemas/                 Pydantic data contracts (WorkflowState, PR, Plan, …)
+├── agents/                  LangGraph agent nodes
+├── mcp_client/              MCP client factory (GitHub + Jira)
+├── llm/                     Amazon Bedrock client + LLM call logger
+├── app_logging/             Structured activity logger (JSONL)
+├── persistence/             SQLite ORM (SQLAlchemy) + repository layer
+├── scheduler/               APScheduler poller + hourly PR reconciler
+├── metrics/                 KPI computation + FastAPI metrics server (:8080)
+├── prompts/                 LLM prompt templates (one file per agent)
+└── tests/
+    ├── unit/                Unit tests — no credentials required
+    └── integration/         Integration tests — require a valid .env
 ```
 
 ---
@@ -192,80 +280,31 @@ pytest tests/unit/ -v
 # Integration tests (requires .env with real credentials)
 pytest tests/integration/ -v -s
 
-# E2E test for a specific ticket
+# End-to-end test for a specific ticket
 TEST_JIRA_TICKET_ID=PROJ-123 pytest tests/integration/test_workflow_e2e.py -v -s
 ```
 
 ---
 
-## Configuration Reference
+## Logging
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `AWS_DEFAULT_REGION` | Yes | `us-east-1` | AWS region for Bedrock |
-| `AWS_ACCESS_KEY_ID` | Yes | — | AWS credentials |
-| `AWS_SECRET_ACCESS_KEY` | Yes | — | AWS credentials |
-| `BEDROCK_MODEL_ID` | No | `anthropic.claude-3-5-sonnet-20241022-v2:0` | Bedrock model |
-| `JIRA_URL` | Yes | — | e.g. `https://myorg.atlassian.net` |
-| `JIRA_USERNAME` | Yes | — | Jira account email |
-| `JIRA_API_TOKEN` | Yes | — | Jira API token |
-| `JIRA_POLL_JQL` | No | `status = "Ready for Dev"` | JQL for polling |
-| `JIRA_POLL_INTERVAL_SECONDS` | No | `300` | Poll frequency |
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | Yes | — | GitHub PAT with `repo` scope |
-| `GITHUB_REPO_OWNER` | Yes | — | GitHub org or username |
-| `GITHUB_REPO_NAME` | Yes | — | Repository name |
-| `GITHUB_BASE_BRANCH` | No | `main` | Target branch for PRs |
-| `COMPLETENESS_THRESHOLD` | No | `0.65` | Min score for "complete" ticket |
-| `DRY_RUN` | No | `false` | Skip Jira comments + GitHub PRs |
+All logs are written in JSON Lines format (one JSON object per line).
 
----
+| File | Content |
+|------|---------|
+| `logs/activity.jsonl` | Workflow events, agent lifecycle, MCP tool calls, errors |
+| `logs/llm_calls.jsonl` | Every LLM call: prompt, response, token counts, latency |
 
-## Agent Modularity
+```bash
+# Stream LLM calls in real time
+tail -f logs/llm_calls.jsonl | python -m json.tool
 
-Each agent is an independent class inheriting from `BaseAgent`:
-
-```
-agents/
-├── ticket_fetcher.py        → TicketFetcherAgent
-├── completeness_agent.py    → CompletenessAgent + PostClarificationAgent
-├── repo_scout_agent.py      → RepoScoutAgent
-├── planner_agent.py         → PlannerAgent
-├── code_proposal_agent.py   → CodeProposalAgent
-├── test_agent.py            → TestAgent
-└── pr_composer_agent.py     → PRComposerAgent
-```
-
-To add, remove, or merge agents:
-1. Create/modify the agent class in `agents/`
-2. Update the LangGraph graph in `agents/supervisor.py` (add/remove nodes and edges)
-3. No other files need to change — state flows through `WorkflowState` TypedDict
-
----
-
-## Project Structure
-
-```
-agentic_sdlc_assistant/
-├── main.py                  # CLI entry point
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── config/                  # Settings + logging config
-├── schemas/                 # Pydantic data contracts
-├── agents/                  # LangGraph agent nodes
-├── mcp/                     # MCP client factory
-├── llm/                     # Bedrock client + LLM logger
-├── logging/                 # Activity logger
-├── persistence/             # SQLite ORM + repository
-├── scheduler/               # APScheduler poller + PR reconciler
-├── metrics/                 # KPI computation + FastAPI server
-├── prompts/                 # LLM prompt templates
-└── tests/                   # Unit + integration tests
+# Filter errors only
+grep '"level": "ERROR"' logs/activity.jsonl | python -m json.tool
 ```
 
 ---
 
 ## License
 
-Internal use — POC for Telomere (Dipanshu / Snehal).
+MIT License — see [LICENSE](LICENSE) for details.
