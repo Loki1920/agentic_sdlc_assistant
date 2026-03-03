@@ -9,6 +9,7 @@ from app_logging.activity_logger import ActivityLogger
 from mcp_client.client_factory import filter_jira_tools, get_mcp_client
 from schemas.ticket import TicketContext
 from schemas.workflow_state import WorkflowPhase, WorkflowState
+from utils.sanitizer import redact_pii
 
 logger = ActivityLogger("ticket_fetcher")
 
@@ -88,11 +89,13 @@ def _parse_jira_response(data: dict, ticket_id: str) -> TicketContext:
     # Jira description can be Atlassian Document Format (ADF) or plain text
     if isinstance(description, dict):
         description = _flatten_adf(description)
+    description = redact_pii(description)
 
     # Acceptance criteria may be stored in a custom field or extracted from description
     ac = fields.get("acceptance_criteria") or fields.get("customfield_10016") or ""
     if isinstance(ac, dict):
         ac = _flatten_adf(ac)
+    ac = redact_pii(ac)
 
     labels = fields.get("labels", []) or []
     components = [c.get("name", "") for c in (fields.get("components") or [])]

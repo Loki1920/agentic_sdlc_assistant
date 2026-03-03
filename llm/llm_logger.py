@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from config.settings import settings
 from app_logging.activity_logger import ActivityLogger
+from utils.retry import with_llm_retry
 
 _activity = ActivityLogger("llm_logger")
 
@@ -120,7 +121,7 @@ class LLMLogger:
         total_tokens: Optional[int] = None
 
         try:
-            response = llm.invoke(messages)
+            response = with_llm_retry(llm.invoke)(messages)
             latency_ms = (time.monotonic() - start) * 1000
 
             raw_response = (

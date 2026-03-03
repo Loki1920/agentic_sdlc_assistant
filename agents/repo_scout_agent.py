@@ -10,6 +10,7 @@ from mcp_client.client_factory import filter_github_tools, get_mcp_client
 from prompts.repo_scout_prompt import REPO_SCOUT_HUMAN_TEMPLATE, REPO_SCOUT_SYSTEM
 from schemas.repo import FileAnalysis, RepoContext
 from schemas.workflow_state import WorkflowPhase, WorkflowState
+from utils.retry import ainvoke_with_retry
 
 logger = ActivityLogger("repo_scout_agent")
 
@@ -24,7 +25,7 @@ async def _get_repo_tree(tools: list, owner: str, repo: str) -> str:
         return "(directory listing unavailable)"
 
     try:
-        result = await get_contents.ainvoke({"owner": owner, "repo": repo, "path": ""})
+        result = await ainvoke_with_retry(get_contents, {"owner": owner, "repo": repo, "path": ""})
         if isinstance(result, list):
             entries = [
                 f"{'📁' if item.get('type') == 'dir' else '📄'} {item.get('name', '')}"
@@ -45,7 +46,7 @@ async def _get_file_content(tools: list, owner: str, repo: str, path: str) -> st
     if get_contents is None:
         return ""
     try:
-        result = await get_contents.ainvoke({"owner": owner, "repo": repo, "path": path})
+        result = await ainvoke_with_retry(get_contents, {"owner": owner, "repo": repo, "path": path})
         if isinstance(result, dict):
             import base64
             content = result.get("content", "")
@@ -53,7 +54,8 @@ async def _get_file_content(tools: list, owner: str, repo: str, path: str) -> st
                 content = base64.b64decode(content).decode("utf-8", errors="replace")
             return content[:3000]  # Limit per file to avoid context overflow
         return str(result)[:3000]
-    except Exception:
+    except Exception as exc:
+        logger.warning("file_fetch_failed", path=path, error=str(exc))
         return ""
 
 
@@ -66,10 +68,11 @@ async def _search_code(tools: list, owner: str, repo: str, query: str) -> list[s
     if search_tool is None:
         return []
     try:
-        result = await search_tool.ainvoke({"q": f"{query} repo:{owner}/{repo}"})
+        result = await ainvoke_with_retry(search_tool, {"q": f"{query} repo:{owner}/{repo}"})
         items = result.get("items", []) if isinstance(result, dict) else []
         return [item.get("path", "") for item in items[:10]]
-    except Exception:
+    except Exception as exc:
+        logger.warning("code_search_failed", query=query, error=str(exc))
         return []
 
 

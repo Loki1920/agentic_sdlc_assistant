@@ -45,10 +45,10 @@ def _build_bedrock() -> BaseChatModel:
     # any cached SSO sessions in ~/.aws/
     if settings.aws_profile:
         session = boto3.Session(profile_name=settings.aws_profile)
-    elif settings.aws_access_key_id and settings.aws_secret_access_key:
+    elif settings.aws_access_key_id and settings.aws_secret_access_key.get_secret_value():
         session = boto3.Session(
             aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key,
+            aws_secret_access_key=settings.aws_secret_access_key.get_secret_value(),
             region_name=settings.aws_default_region,
         )
     else:
@@ -61,7 +61,7 @@ def _build_bedrock() -> BaseChatModel:
 def _build_openai() -> BaseChatModel:
     from langchain_openai import ChatOpenAI
 
-    if not settings.openai_api_key:
+    if not settings.openai_api_key.get_secret_value():
         raise ValueError(
             "LLM_PROVIDER=openai but OPENAI_API_KEY is not set. "
             "Add it to your .env file."
@@ -69,7 +69,7 @@ def _build_openai() -> BaseChatModel:
 
     return ChatOpenAI(
         model=settings.openai_model_id,
-        api_key=settings.openai_api_key,
+        api_key=settings.openai_api_key.get_secret_value(),
         temperature=settings.openai_temperature,
         max_tokens=settings.openai_max_tokens,
         streaming=False,

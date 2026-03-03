@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,14 +18,14 @@ class Settings(BaseSettings):
     # ── AWS Bedrock ──────────────────────────────────────────────────────────
     aws_default_region: str = "us-east-1"
     aws_access_key_id: str = ""
-    aws_secret_access_key: str = ""
+    aws_secret_access_key: SecretStr = SecretStr("")
     aws_profile: str = ""
     bedrock_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
     bedrock_max_tokens: int = 4096
     bedrock_temperature: float = 0.1
 
     # ── OpenAI ───────────────────────────────────────────────────────────────
-    openai_api_key: str = ""
+    openai_api_key: SecretStr = SecretStr("")
     openai_model_id: str = "gpt-4o"
     openai_max_tokens: int = 4096
     openai_temperature: float = 0.1
@@ -33,13 +33,13 @@ class Settings(BaseSettings):
     # ── Jira ─────────────────────────────────────────────────────────────────
     jira_url: str = ""
     jira_username: str = ""
-    jira_api_token: str = ""
+    jira_api_token: SecretStr = SecretStr("")
     jira_projects_filter: str = ""
     jira_poll_jql: str = 'status = "Ready for Dev" ORDER BY created DESC'
     jira_poll_interval_seconds: int = 300
 
     # ── GitHub ───────────────────────────────────────────────────────────────
-    github_personal_access_token: str = Field(default="", alias="GITHUB_PERSONAL_ACCESS_TOKEN")
+    github_personal_access_token: SecretStr = Field(default=SecretStr(""), alias="GITHUB_PERSONAL_ACCESS_TOKEN")
     github_repo_owner: str = ""
     github_repo_name: str = ""
     github_base_branch: str = "main"
@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     # ── Metrics ──────────────────────────────────────────────────────────────
     metrics_port: int = 8080
+    metrics_api_key: str = ""
     pr_reconcile_interval_seconds: int = 3600
 
     # ── Confluence ───────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ class Settings(BaseSettings):
     # ── Derived helpers ──────────────────────────────────────────────────────
     @property
     def github_token(self) -> str:
-        return self.github_personal_access_token
+        return self.github_personal_access_token.get_secret_value()
 
     @property
     def default_reviewers_list(self) -> list[str]:

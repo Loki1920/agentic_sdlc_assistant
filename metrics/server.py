@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from config.settings import settings
@@ -12,6 +12,12 @@ from persistence.repository import TicketRepository
 app = FastAPI(title="AI SDLC Assistant — POC Metrics", version="1.0.0")
 _collector = POCMetricsCollector()
 _repo = TicketRepository()
+
+
+def _require_api_key(x_api_key: str = Header(..., alias="X-Api-Key")) -> None:
+    """Verify the X-Api-Key header matches METRICS_API_KEY from settings."""
+    if not settings.metrics_api_key or x_api_key != settings.metrics_api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
 
 
 @app.on_event("startup")
@@ -68,7 +74,7 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/pr/{run_id}/approve")
+@app.post("/pr/{run_id}/approve", dependencies=[Depends(_require_api_key)])
 def mark_pr_approved(run_id: str):
     """Manually mark a PR run as approved (for KPI 1 tracking)."""
     from persistence.models import PROutcome
@@ -76,7 +82,7 @@ def mark_pr_approved(run_id: str):
     return {"run_id": run_id, "outcome": "approved"}
 
 
-@app.post("/pr/{run_id}/reject")
+@app.post("/pr/{run_id}/reject", dependencies=[Depends(_require_api_key)])
 def mark_pr_rejected(run_id: str):
     """Manually mark a PR run as rejected."""
     from persistence.models import PROutcome

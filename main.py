@@ -34,7 +34,45 @@ def _configure() -> None:
     init_db()
 
 
+def validate_settings(mode: str) -> None:
+    """
+    Check that required environment variables are present for the given run mode.
+    Prints all missing settings and exits with code 1 if any are absent.
+    """
+    from config.settings import settings
+
+    errors: list[str] = []
+
+    if mode in ("scheduler", "single"):
+        if not settings.jira_url:
+            errors.append("JIRA_URL is not set")
+        if not settings.jira_api_token.get_secret_value():
+            errors.append("JIRA_API_TOKEN is not set")
+        if not settings.jira_username:
+            errors.append("JIRA_USERNAME is not set")
+        if not settings.github_personal_access_token.get_secret_value():
+            errors.append("GITHUB_PERSONAL_ACCESS_TOKEN is not set")
+        if not settings.github_repo_owner:
+            errors.append("GITHUB_REPO_OWNER is not set")
+        if not settings.github_repo_name:
+            errors.append("GITHUB_REPO_NAME is not set")
+        if not settings.aws_profile and not (
+            settings.aws_access_key_id
+            and settings.aws_secret_access_key.get_secret_value()
+        ):
+            errors.append(
+                "AWS credentials not configured: set AWS_PROFILE or "
+                "AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY"
+            )
+
+    if errors:
+        for e in errors:
+            print(f"[CONFIG ERROR] {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def run_scheduler() -> None:
+    validate_settings("scheduler")
     _configure()
     from apscheduler.triggers.interval import IntervalTrigger
     from config.settings import settings
@@ -68,6 +106,7 @@ def run_scheduler() -> None:
 def run_single(ticket_id: str, dry_run: bool) -> None:
     if dry_run:
         os.environ["DRY_RUN"] = "true"
+    validate_settings("single")
     _configure()
 
     from agents.supervisor import run_workflow

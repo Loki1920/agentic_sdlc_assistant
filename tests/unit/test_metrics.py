@@ -8,26 +8,8 @@ from datetime import datetime, timezone
 from persistence.database import engine, init_db
 from persistence.models import Base, PROutcome, RunStatus, TicketRun
 
-
-@pytest.fixture(autouse=True)
-def fresh_db(tmp_path, monkeypatch):
-    """Each test gets a fresh in-memory-style SQLite DB."""
-    db_path = str(tmp_path / "test.db")
-    monkeypatch.setenv("SQLITE_DB_PATH", db_path)
-
-    # Patch the engine in database module
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    import persistence.database as db_mod
-
-    test_engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(test_engine)
-    db_mod.engine = test_engine
-    db_mod.SessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
-
-    yield
-
-    Base.metadata.drop_all(test_engine)
+# fresh_db fixture is provided by conftest.py
+pytestmark = pytest.mark.usefixtures("fresh_db")
 
 
 def _insert_run(session, run_id, ticket_id, status, pr_outcome=PROutcome.NOT_CREATED,

@@ -27,7 +27,7 @@ def _build_server_config() -> dict:
             "env": {
                 "JIRA_URL": settings.jira_url,
                 "JIRA_USERNAME": settings.jira_username,
-                "JIRA_API_TOKEN": settings.jira_api_token,
+                "JIRA_API_TOKEN": settings.jira_api_token.get_secret_value(),
                 **(
                     {"JIRA_PROJECTS_FILTER": settings.jira_projects_filter}
                     if settings.jira_projects_filter
@@ -38,7 +38,7 @@ def _build_server_config() -> dict:
                     {
                         "CONFLUENCE_URL": settings.confluence_url,
                         "CONFLUENCE_USERNAME": settings.jira_username,
-                        "CONFLUENCE_API_TOKEN": settings.jira_api_token,
+                        "CONFLUENCE_API_TOKEN": settings.jira_api_token.get_secret_value(),
                         **(
                             {"CONFLUENCE_SPACES_FILTER": settings.confluence_space_keys}
                             if settings.confluence_space_keys
