@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: SecretStr = SecretStr("")
     aws_profile: str = ""
-    bedrock_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # Cross-region inference profile prefix: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+    bedrock_model_id: str = "anthropic.claude-3-7-sonnet-20250219-v1:0"
     bedrock_max_tokens: int = 4096
     bedrock_temperature: float = 0.1
 
@@ -53,6 +54,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     activity_log_path: str = "logs/activity.jsonl"
     llm_log_path: str = "logs/llm_calls.jsonl"
+    log_max_bytes: int = 10_000_000   # 10 MB before rotation
+    log_backup_count: int = 5         # keep 5 rotated files
 
     # ── Metrics ──────────────────────────────────────────────────────────────
     metrics_port: int = 8080

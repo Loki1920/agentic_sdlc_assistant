@@ -11,10 +11,10 @@ import pytest
 
 from agents.confluence_agent import (
     ConfluenceAgent,
-    _extract_keywords,
     _format_pages_for_prompt,
     _page_url,
 )
+from utils.text_helpers import extract_keywords as _extract_keywords
 from schemas.confluence import ConfluenceContext, ConfluencePage
 from schemas.workflow_state import WorkflowPhase
 

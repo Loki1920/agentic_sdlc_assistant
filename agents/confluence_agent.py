@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from typing import Optional
 
 from agents.base_agent import BaseAgent
@@ -11,6 +10,8 @@ from mcp_client.client_factory import filter_confluence_tools, get_mcp_client
 from prompts.confluence_prompt import CONFLUENCE_HUMAN_TEMPLATE, CONFLUENCE_SYSTEM
 from schemas.confluence import ConfluenceContext, ConfluencePage
 from schemas.workflow_state import WorkflowPhase, WorkflowState
+from utils.mcp_helpers import find_tool
+from utils.text_helpers import extract_keywords as _extract_keywords
 
 logger = ActivityLogger("confluence_agent")
 
@@ -20,10 +21,7 @@ logger = ActivityLogger("confluence_agent")
 
 async def _search_confluence(tools: list, space_keys: list[str], query: str) -> list[dict]:
     """Search Confluence for pages matching the query."""
-    search_tool = next(
-        (t for t in tools if "confluence_search" in t.name.lower() or "search" in t.name.lower()),
-        None,
-    )
+    search_tool = find_tool(tools, "confluence_search") or find_tool(tools, "search")
     if search_tool is None:
         return []
 
@@ -44,15 +42,10 @@ async def _search_confluence(tools: list, space_keys: list[str], query: str) -> 
 
 async def _get_page_content(tools: list, page_id: str) -> str:
     """Fetch the full content of a Confluence page by ID."""
-    get_tool = next(
-        (
-            t
-            for t in tools
-            if "confluence_get_page" in t.name.lower()
-            or ("get_page" in t.name.lower() and "confluence" in t.name.lower())
-            or ("page" in t.name.lower() and "get" in t.name.lower())
-        ),
-        None,
+    get_tool = (
+        find_tool(tools, "confluence_get_page")
+        or find_tool(tools, "get_page", "confluence")
+        or find_tool(tools, "page", "get")
     )
     if get_tool is None:
         return ""
@@ -73,26 +66,6 @@ async def _get_page_content(tools: list, page_id: str) -> str:
         logger.warning("confluence_get_page_failed", page_id=page_id, error=str(exc))
         return ""
 
-
-def _extract_keywords(ticket_context) -> list[str]:
-    """Extract search keywords from ticket title and description."""
-    text = f"{ticket_context.title} {ticket_context.description or ''}"
-    words = re.findall(r"\b[a-zA-Z][a-zA-Z_]{3,}\b", text)
-    stopwords = {
-        "should", "will", "need", "must", "want", "have", "been", "with",
-        "from", "that", "this", "when", "user", "users", "able", "into",
-        "also", "some", "more", "than", "then", "they", "them", "their",
-    }
-    keywords: list[str] = []
-    seen: set[str] = set()
-    for word in words:
-        lower = word.lower()
-        if lower not in stopwords and lower not in seen:
-            seen.add(lower)
-            keywords.append(lower)
-        if len(keywords) >= 5:
-            break
-    return keywords
 
 
 def _page_url(page: dict) -> str:

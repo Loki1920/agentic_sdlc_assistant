@@ -10,17 +10,16 @@ from mcp_client.client_factory import filter_github_tools, get_mcp_client
 from prompts.repo_scout_prompt import REPO_SCOUT_HUMAN_TEMPLATE, REPO_SCOUT_SYSTEM
 from schemas.repo import FileAnalysis, RepoContext
 from schemas.workflow_state import WorkflowPhase, WorkflowState
+from utils.mcp_helpers import find_tool
 from utils.retry import ainvoke_with_retry
+from utils.text_helpers import extract_keywords as _extract_keywords
 
 logger = ActivityLogger("repo_scout_agent")
 
 
 async def _get_repo_tree(tools: list, owner: str, repo: str) -> str:
     """Fetch top-level directory structure."""
-    get_contents = next(
-        (t for t in tools if "get_file_contents" in t.name.lower() or "contents" in t.name.lower()),
-        None,
-    )
+    get_contents = find_tool(tools, "get_file_contents") or find_tool(tools, "contents")
     if get_contents is None:
         return "(directory listing unavailable)"
 
@@ -39,10 +38,7 @@ async def _get_repo_tree(tools: list, owner: str, repo: str) -> str:
 
 async def _get_file_content(tools: list, owner: str, repo: str, path: str) -> str:
     """Fetch contents of a specific file."""
-    get_contents = next(
-        (t for t in tools if "get_file_contents" in t.name.lower() or "contents" in t.name.lower()),
-        None,
-    )
+    get_contents = find_tool(tools, "get_file_contents") or find_tool(tools, "contents")
     if get_contents is None:
         return ""
     try:
@@ -61,10 +57,7 @@ async def _get_file_content(tools: list, owner: str, repo: str, path: str) -> st
 
 async def _search_code(tools: list, owner: str, repo: str, query: str) -> list[str]:
     """Search for relevant files using keyword search."""
-    search_tool = next(
-        (t for t in tools if "search_code" in t.name.lower() or "search" in t.name.lower()),
-        None,
-    )
+    search_tool = find_tool(tools, "search_code") or find_tool(tools, "search")
     if search_tool is None:
         return []
     try:
@@ -129,28 +122,6 @@ async def _gather_repo_data(ticket_context, max_files: int) -> tuple[str, str, s
         file_listing = "\n\n".join(file_listing_parts) or "(no matching files found)"
         return dir_summary, dep_content, file_listing, relevant_paths
 
-
-def _extract_keywords(ticket_context) -> list[str]:
-    """Extract search keywords from ticket title + description."""
-    import re
-    text = f"{ticket_context.title} {ticket_context.description or ''}"
-    # Remove common stop words and short tokens
-    words = re.findall(r"\b[a-zA-Z][a-zA-Z_]{3,}\b", text)
-    stopwords = {
-        "should", "will", "need", "must", "want", "have", "been", "with",
-        "from", "that", "this", "when", "user", "users", "able", "into",
-    }
-    keywords = [w.lower() for w in words if w.lower() not in stopwords]
-    # Return unique, up to 5
-    seen = set()
-    result = []
-    for kw in keywords:
-        if kw not in seen:
-            seen.add(kw)
-            result.append(kw)
-        if len(result) >= 5:
-            break
-    return result
 
 
 class RepoScoutAgent(BaseAgent):

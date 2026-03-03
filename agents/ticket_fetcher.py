@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 from agents.base_agent import BaseAgent
@@ -9,45 +8,11 @@ from app_logging.activity_logger import ActivityLogger
 from mcp_client.client_factory import filter_jira_tools, get_mcp_client
 from schemas.ticket import TicketContext
 from schemas.workflow_state import WorkflowPhase, WorkflowState
+from utils.mcp_helpers import find_tool, unwrap_tool_result as _unwrap_tool_result
 from utils.sanitizer import redact_pii
 
 logger = ActivityLogger("ticket_fetcher")
 
-
-def _unwrap_tool_result(result: Any) -> dict:
-    """Extract a parsed dict from a LangChain MCP tool ainvoke result.
-
-    Tools with response_format='content_and_artifact' return a list of
-    content blocks: [{"type": "text", "text": "<json string>"}, ...].
-    This helper collapses them into a single parsed dict.
-    """
-    # Unpack (content, artifact) tuple if present
-    if isinstance(result, tuple):
-        result = result[0]
-
-    if isinstance(result, dict):
-        return result
-
-    if isinstance(result, list):
-        text_parts = []
-        for block in result:
-            if isinstance(block, dict) and block.get("type") == "text":
-                text_parts.append(block.get("text", ""))
-            elif hasattr(block, "text"):
-                text_parts.append(block.text)
-        text = "\n".join(text_parts)
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return {"description": text}
-
-    if isinstance(result, str):
-        try:
-            return json.loads(result)
-        except json.JSONDecodeError:
-            return {"description": result}
-
-    return result
 
 
 async def _fetch_ticket_via_mcp(ticket_id: str) -> dict:
@@ -57,16 +22,10 @@ async def _fetch_ticket_via_mcp(ticket_id: str) -> dict:
         jira_tools = filter_jira_tools(all_tools)
 
         # Find the get_issue or get_jira_issue tool
-        get_issue_tool = next(
-            (t for t in jira_tools if "get_issue" in t.name.lower() or "get_jira" in t.name.lower()),
-            None,
-        )
+        get_issue_tool = find_tool(jira_tools, "get_issue") or find_tool(jira_tools, "get_jira")
         if get_issue_tool is None:
             # Fallback: try any search tool with exact issue key
-            search_tool = next(
-                (t for t in jira_tools if "search" in t.name.lower()),
-                None,
-            )
+            search_tool = find_tool(jira_tools, "search")
             if search_tool is None:
                 raise RuntimeError(
                     f"No suitable Jira MCP tool found. Available: {[t.name for t in jira_tools]}"

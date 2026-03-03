@@ -11,6 +11,7 @@ from mcp_client.client_factory import filter_github_tools, get_mcp_client
 from prompts.pr_composer_prompt import PR_TITLE_SYSTEM
 from schemas.pr import PRCompositionResult, PRStatus
 from schemas.workflow_state import WorkflowPhase, WorkflowState
+from utils.mcp_helpers import find_tool
 
 logger = ActivityLogger("pr_composer_agent")
 
@@ -146,14 +147,8 @@ def _detect_lang(file_path: str) -> str:
 async def _create_branch(tools: list, owner: str, repo: str, branch_name: str, base_branch: str) -> bool:
     """Create a new branch from base_branch."""
     # Get base SHA first
-    get_branch = next(
-        (t for t in tools if "get_branch" in t.name.lower() or ("branch" in t.name.lower() and "get" in t.name.lower())),
-        None,
-    )
-    create_branch = next(
-        (t for t in tools if "create_branch" in t.name.lower()),
-        None,
-    )
+    get_branch = find_tool(tools, "get_branch") or find_tool(tools, "branch", "get")
+    create_branch = find_tool(tools, "create_branch")
 
     if not create_branch:
         logger.warning("github_create_branch_tool_not_found")
@@ -184,10 +179,7 @@ async def _push_implementation_file(
     pr_body: str,
 ) -> None:
     """Push an IMPLEMENTATION_PLAN.md file to the branch."""
-    push_tool = next(
-        (t for t in tools if "create_or_update_file" in t.name.lower() or "push_files" in t.name.lower()),
-        None,
-    )
+    push_tool = find_tool(tools, "create_or_update_file") or find_tool(tools, "push_files")
     if not push_tool:
         return
 
@@ -217,10 +209,7 @@ async def _create_pull_request(
     draft: bool,
     reviewers: list[str],
 ) -> dict:
-    create_pr = next(
-        (t for t in tools if "create_pull_request" in t.name.lower()),
-        None,
-    )
+    create_pr = find_tool(tools, "create_pull_request")
     if not create_pr:
         raise RuntimeError("create_pull_request tool not found in GitHub MCP")
 

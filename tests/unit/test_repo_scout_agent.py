@@ -13,7 +13,7 @@ from schemas.workflow_state import WorkflowPhase
 # ── _extract_keywords ─────────────────────────────────────────────────────────
 
 def test_extract_keywords_basic():
-    from agents.repo_scout_agent import _extract_keywords
+    from utils.text_helpers import extract_keywords as _extract_keywords
 
     ticket = MagicMock()
     ticket.title = "Add authentication login"
@@ -26,7 +26,7 @@ def test_extract_keywords_basic():
 
 
 def test_extract_keywords_filters_stopwords():
-    from agents.repo_scout_agent import _extract_keywords
+    from utils.text_helpers import extract_keywords as _extract_keywords
 
     ticket = MagicMock()
     ticket.title = "Users should have login"
@@ -42,7 +42,7 @@ def test_extract_keywords_filters_stopwords():
 
 
 def test_extract_keywords_deduplication():
-    from agents.repo_scout_agent import _extract_keywords
+    from utils.text_helpers import extract_keywords as _extract_keywords
 
     ticket = MagicMock()
     ticket.title = "login login login authentication"

@@ -10,6 +10,21 @@ from typing import Any, Optional
 from config.settings import settings
 
 
+def _rotate_log(path: Path, max_bytes: int, backup_count: int) -> None:
+    """Rotate *path* when it exceeds *max_bytes*.
+
+    foo.jsonl → foo.1.jsonl, foo.1.jsonl → foo.2.jsonl, …
+    """
+    if not path.exists() or path.stat().st_size < max_bytes:
+        return
+    for i in range(backup_count - 1, 0, -1):
+        src = path.with_name(f"{path.stem}.{i}{path.suffix}")
+        dst = path.with_name(f"{path.stem}.{i + 1}{path.suffix}")
+        if src.exists():
+            src.rename(dst)
+    path.rename(path.with_name(f"{path.stem}.1{path.suffix}"))
+
+
 class ActivityLogger:
     """
     Structured activity logger. Writes JSON lines to file and stderr.
@@ -34,6 +49,8 @@ class ActivityLogger:
         self.agent_name = agent_name
         self._log_path = Path(settings.activity_log_path)
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
+        self._max_bytes = settings.log_max_bytes
+        self._backup_count = settings.log_backup_count
 
     def _write(
         self,
@@ -60,6 +77,7 @@ class ActivityLogger:
         line = json.dumps(record, default=str)
 
         with self._lock:
+            _rotate_log(self._log_path, self._max_bytes, self._backup_count)
             with open(self._log_path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
 

@@ -12,6 +12,7 @@ from app_logging.activity_logger import ActivityLogger
 from mcp_client.client_factory import filter_jira_tools, get_mcp_client
 from persistence.database import init_db
 from persistence.repository import TicketRepository
+from utils.mcp_helpers import find_tool, unwrap_tool_result
 
 logger = ActivityLogger("poller")
 _repo = TicketRepository()
@@ -29,10 +30,7 @@ async def _fetch_ready_ticket_ids() -> list[str]:
         all_tools = await client.get_tools()
         jira_tools = filter_jira_tools(all_tools)
 
-        search_tool = next(
-            (t for t in jira_tools if "search" in t.name.lower()),
-            None,
-        )
+        search_tool = find_tool(jira_tools, "search")
         if search_tool is None:
             logger.warning(
                 "jira_search_tool_not_found",
@@ -46,7 +44,7 @@ async def _fetch_ready_ticket_ids() -> list[str]:
             "fields": ["summary", "status", "assignee"],
         })
 
-    issues = result.get("issues", []) if isinstance(result, dict) else []
+    issues = unwrap_tool_result(result).get("issues", [])
     all_ids = [issue.get("key", "") for issue in issues if issue.get("key")]
 
     # Filter out already-processed tickets

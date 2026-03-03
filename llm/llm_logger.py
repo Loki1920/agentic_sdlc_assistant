@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -9,7 +10,7 @@ from typing import Any, Callable, Optional
 from pydantic import BaseModel, Field
 
 from config.settings import settings
-from app_logging.activity_logger import ActivityLogger
+from app_logging.activity_logger import ActivityLogger, _rotate_log
 from utils.retry import with_llm_retry
 
 _activity = ActivityLogger("llm_logger")
@@ -65,6 +66,8 @@ class LLMLogger:
         result, record = llm_logger.invoke_and_log(llm, messages, ...)
     """
 
+    _lock = threading.Lock()
+
     def __init__(self) -> None:
         self._log_path = Path(settings.llm_log_path)
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,8 +77,10 @@ class LLMLogger:
     def log_call(self, record: LLMCallRecord) -> str:
         """Write record to JSONL file and SQLite. Returns call_id."""
         # File
-        with open(self._log_path, "a", encoding="utf-8") as f:
-            f.write(record.model_dump_json() + "\n")
+        with self._lock:
+            _rotate_log(self._log_path, settings.log_max_bytes, settings.log_backup_count)
+            with open(self._log_path, "a", encoding="utf-8") as f:
+                f.write(record.model_dump_json() + "\n")
 
         # SQLite (best-effort — don't crash the workflow on DB failure)
         try:
