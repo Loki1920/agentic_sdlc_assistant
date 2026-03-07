@@ -1,15 +1,37 @@
-Could not find platform independent libraries <prefix>
+# ============================================================
+# AI Agentic SDLC Assistant — Dependency Lock File
+# AUTO-GENERATED — DO NOT EDIT MANUALLY
+#
+# Generated with: pip freeze > requirements.lock
+# Python: 3.13.5  |  Platform: Windows  |  Date: 2026-03-07
+#
+# This file pins ALL transitive dependencies to exact versions
+# for fully reproducible installs across all environments.
+#
+# To install:    pip install -r requirements.lock
+# To regenerate: pip freeze > requirements.lock
+#
+# To add/upgrade a dependency:
+#   1. Edit requirements.in (abstract deps)
+#   2. pip install <new-package>
+#   3. pip freeze > requirements.lock
+#   4. Commit both files together
+# ============================================================
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
+altair==6.0.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
 APScheduler==3.11.2
 attrs==25.4.0
 awscrt==0.31.2
+blinker==1.9.0
 boto3==1.42.54
 botocore==1.42.54
+build==1.4.0
+cachetools==7.0.3
 certifi==2026.1.4
 cffi==2.0.0
 charset-normalizer==3.4.4
@@ -20,6 +42,8 @@ cryptography==46.0.5
 distro==1.9.0
 fastapi==0.131.0
 frozenlist==1.8.0
+gitdb==4.0.12
+GitPython==3.1.46
 greenlet==3.3.2
 h11==0.16.0
 httpcore==1.0.9
@@ -48,25 +72,34 @@ MarkupSafe==3.0.3
 mcp==1.26.0
 moto==5.1.21
 multidict==6.7.1
+narwhals==2.17.0
 numpy==2.4.2
 openai==2.21.0
 orjson==3.11.7
 ormsgpack==1.12.2
 packaging==26.0
+pandas==2.3.3
+pillow==12.1.1
+pip-tools==7.5.3
 pluggy==1.6.0
 propcache==0.4.1
+protobuf==6.33.5
+pyarrow==23.0.1
 pycparser==3.0
 pydantic==2.12.5
 pydantic-settings==2.13.1
 pydantic_core==2.41.5
+pydeck==0.9.1
 Pygments==2.19.2
 PyJWT==2.11.0
+pyproject_hooks==1.2.0
 pytest==9.0.2
 pytest-asyncio==1.3.0
 pytest-mock==3.15.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-multipart==0.0.22
+pytz==2026.1.post1
 pywin32==311
 PyYAML==6.0.3
 referencing==0.37.0
@@ -76,14 +109,19 @@ requests-toolbelt==1.0.0
 responses==0.26.0
 rpds-py==0.30.0
 s3transfer==0.16.0
+setuptools==82.0.0
 six==1.17.0
+smmap==5.0.2
 sniffio==1.3.1
 SQLAlchemy==2.0.46
 sse-starlette==3.2.0
 starlette==0.52.1
+streamlit==1.55.0
 structlog==25.5.0
 tenacity==9.1.4
 tiktoken==0.12.0
+toml==0.10.2
+tornado==6.5.4
 tqdm==4.67.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0
@@ -93,7 +131,9 @@ urllib3==2.6.3
 uuid_utils==0.14.1
 uv==0.10.4
 uvicorn==0.41.0
+watchdog==6.0.0
 Werkzeug==3.1.6
+wheel==0.46.3
 xmltodict==1.0.4
 xxhash==3.6.0
 yarl==1.22.0
