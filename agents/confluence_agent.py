@@ -27,8 +27,6 @@ async def _search_confluence(tools: list, space_keys: list[str], query: str) -> 
 
     try:
         params: dict = {"query": query, "limit": 10}
-        if space_keys:
-            params["space_key"] = space_keys[0]
         result = await search_tool.ainvoke(params)
         if isinstance(result, dict):
             return result.get("results", [])

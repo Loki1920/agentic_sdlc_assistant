@@ -52,7 +52,9 @@ class BaseAgent(ABC):
 
         Every invocation is logged to logs/llm_calls.jsonl and SQLite.
         """
-        llm_structured = self.llm.with_structured_output(output_schema, include_raw=False)
+        llm_structured = self.llm.with_structured_output(
+            output_schema, include_raw=False, method="function_calling"
+        )
 
         messages = [
             SystemMessage(content=system_prompt),

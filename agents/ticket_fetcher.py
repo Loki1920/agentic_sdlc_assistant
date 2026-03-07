@@ -21,8 +21,9 @@ async def _fetch_ticket_via_mcp(ticket_id: str) -> dict:
         all_tools = await client.get_tools()
         jira_tools = filter_jira_tools(all_tools)
 
-        # Find the get_issue or get_jira_issue tool
-        get_issue_tool = find_tool(jira_tools, "get_issue") or find_tool(jira_tools, "get_jira")
+        # Find the get_issue tool — use exact name to avoid matching jira_get_issue_watchers
+        exact_match = next((t for t in jira_tools if t.name == "jira_get_issue"), None)
+        get_issue_tool = exact_match or find_tool(jira_tools, "jira_get_issue") or find_tool(jira_tools, "get_jira")
         if get_issue_tool is None:
             # Fallback: try any search tool with exact issue key
             search_tool = find_tool(jira_tools, "search")
@@ -55,6 +56,18 @@ def _parse_jira_response(data: dict, ticket_id: str) -> TicketContext:
     if isinstance(ac, dict):
         ac = _flatten_adf(ac)
     ac = redact_pii(ac)
+
+    # If no dedicated AC field, attempt to extract the "Acceptance Criteria" section from
+    # the markdown description (e.g. "## Acceptance Criteria\n- ...").
+    if not ac and description:
+        import re
+        ac_match = re.search(
+            r"#+\s*Acceptance Criteria\s*\n(.*?)(?=\n#+\s|\Z)",
+            description,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if ac_match:
+            ac = ac_match.group(1).strip()
 
     labels = fields.get("labels", []) or []
     components = [c.get("name", "") for c in (fields.get("components") or [])]

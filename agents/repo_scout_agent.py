@@ -172,7 +172,14 @@ class RepoScoutAgent(BaseAgent):
             )
 
             if result is None:
-                raise ValueError("LLM returned None for RepoContext")
+                # Repo is likely empty or unrecognised — build a minimal context
+                # so the pipeline can still produce a plan and code proposal.
+                result = RepoContext(
+                    repo_owner=settings.github_repo_owner,
+                    repo_name=settings.github_repo_name,
+                    directory_summary=dir_summary or "(repository appears empty)",
+                    primary_language=None,
+                )
 
             # Fill in metadata that LLM may not know
             result.repo_owner = settings.github_repo_owner
