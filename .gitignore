@@ -45,4 +45,5 @@ docker-volumes/
 .claude/
 
 # Miscellaneous generated files
+run_output.txt
 =*
