@@ -122,19 +122,25 @@ def run_single(ticket_id: str, dry_run: bool) -> None:
     errors = final_state.get("errors", [])
     pr = final_state.get("pr_result")
 
-    print("\n" + "=" * 60)
-    print(f"  Ticket: {ticket_id}")
-    print(f"  Phase:  {phase}")
+    lines = [
+        "",
+        "=" * 60,
+        f"  Ticket: {ticket_id}",
+        f"  Phase:  {phase}",
+    ]
     if errors:
-        print(f"  Errors: {'; '.join(errors)}")
+        lines.append(f"  Errors: {'; '.join(errors)}")
     if pr and hasattr(pr, "pr_url") and pr.pr_url:
-        print(f"  PR:     {pr.pr_url}")
+        lines.append(f"  PR:     {pr.pr_url}")
     elif pr and hasattr(pr, "status"):
-        print(f"  PR:     {pr.status.value}")
+        lines.append(f"  PR:     {pr.status.value}")
     completeness = final_state.get("completeness_result")
     if completeness:
-        print(f"  Completeness: {completeness.completeness_score:.0%} ({completeness.decision.value})")
-    print("=" * 60 + "\n")
+        lines.append(f"  Completeness: {completeness.completeness_score:.0%} ({completeness.decision.value})")
+    lines.append("=" * 60)
+    lines.append("")
+    sys.stdout.buffer.write(("\n".join(lines)).encode("utf-8", errors="replace") + b"\n")
+    sys.stdout.buffer.flush()
 
 
 def show_metrics() -> None:
@@ -143,26 +149,32 @@ def show_metrics() -> None:
 
     m = POCMetricsCollector().compute()
 
-    print("\n" + "=" * 60)
-    print("  POC SUCCESS CRITERIA")
-    print("=" * 60)
-    kpi1_icon = "✅" if m.kpi1_met else "❌"
-    kpi2_icon = "✅" if m.kpi2_met else "❌"
-    kpi3_icon = "✅" if m.kpi3_met else "❌"
+    kpi1_icon = "[PASS]" if m.kpi1_met else "[FAIL]"
+    kpi2_icon = "[PASS]" if m.kpi2_met else "[FAIL]"
+    kpi3_icon = "[PASS]" if m.kpi3_met else "[FAIL]"
 
-    print(f"  {kpi1_icon} KPI 1 — PR Approval Rate:         {m.pr_approval_rate:.1%}  (target ≥33%, {m.total_prs_approved}/{m.total_prs_resolved} resolved)")
-    print(f"  {kpi2_icon} KPI 2 — Incomplete Detection:      {m.incomplete_detection_rate:.1%}  (target ≥50%)")
+    lines = [
+        "",
+        "=" * 60,
+        "  POC SUCCESS CRITERIA",
+        "=" * 60,
+        f"  {kpi1_icon} KPI 1 - PR Approval Rate:        {m.pr_approval_rate:.1%}  (target >=33%, {m.total_prs_approved}/{m.total_prs_resolved} resolved)",
+        f"  {kpi2_icon} KPI 2 - Incomplete Detection:     {m.incomplete_detection_rate:.1%}  (target >=50%)",
+    ]
     if m.kpi2_note:
-        print(f"           Note: {m.kpi2_note}")
-    print(f"  {kpi3_icon} KPI 3 — Consecutive Error-Free:    {m.consecutive_error_free_runs}   (target ≥10, total runs: {m.total_runs})")
-    print()
+        lines.append(f"           Note: {m.kpi2_note}")
+    lines.append(f"  {kpi3_icon} KPI 3 - Consecutive Error-Free:   {m.consecutive_error_free_runs}   (target >=10, total runs: {m.total_runs})")
+    lines.append("")
     if m.average_duration_seconds is not None:
-        print(f"  Average processing time: {m.average_duration_seconds:.1f}s")
+        lines.append(f"  Average processing time: {m.average_duration_seconds:.1f}s")
     if m.average_tokens_per_run is not None:
-        print(f"  Average tokens/run:      {m.average_tokens_per_run:.0f}")
-    print(f"  Complete pipeline runs:  {m.runs_complete_pipeline}")
-    print(f"  Flagged incomplete:      {m.runs_flagged_incomplete}")
-    print("=" * 60 + "\n")
+        lines.append(f"  Average tokens/run:      {m.average_tokens_per_run:.0f}")
+    lines.append(f"  Complete pipeline runs:  {m.runs_complete_pipeline}")
+    lines.append(f"  Flagged incomplete:      {m.runs_flagged_incomplete}")
+    lines.append("=" * 60)
+    lines.append("")
+    sys.stdout.buffer.write(("\n".join(lines)).encode("utf-8", errors="replace") + b"\n")
+    sys.stdout.buffer.flush()
 
 
 def start_metrics_server() -> None:

@@ -41,7 +41,7 @@ async def _post_jira_comment(ticket_id: str, comment_body: str) -> Optional[str]
             return None
 
         result = await add_comment_tool.ainvoke(
-            {"issue_key": ticket_id, "comment": comment_body}
+            {"issue_key": ticket_id, "body": comment_body}
         )
 
         # langchain_mcp_adapters returns the MCP text content as a string, not a dict
@@ -78,7 +78,7 @@ async def _apply_jira_label(ticket_id: str, label: str) -> None:
         await update_tool.ainvoke(
             {
                 "issue_key": ticket_id,
-                "fields": {"labels": [label]},
+                "fields": json.dumps({"labels": [label]}),
             }
         )
 

@@ -102,6 +102,7 @@ def filter_github_tools(tools: list) -> list:
         "pull_request",
         "create_pull",
         "get_file",
+        "create_or_update",
         "search_code",
         "push",
         "branch",

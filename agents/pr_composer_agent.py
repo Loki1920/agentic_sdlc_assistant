@@ -11,7 +11,7 @@ from mcp_client.client_factory import filter_github_tools, get_mcp_client
 from prompts.pr_composer_prompt import PR_TITLE_SYSTEM
 from schemas.pr import PRCompositionResult, PRStatus
 from schemas.workflow_state import WorkflowPhase, WorkflowState
-from utils.mcp_helpers import find_tool
+from utils.mcp_helpers import find_tool, unwrap_tool_result
 
 logger = ActivityLogger("pr_composer_agent")
 
@@ -166,7 +166,12 @@ async def _create_branch(tools: list, owner: str, repo: str, branch_name: str, b
         await create_branch.ainvoke(kwargs)
         return True
     except Exception as exc:
-        logger.warning("github_create_branch_failed", error=str(exc))
+        err_str = str(exc)
+        # Branch already exists — treat as success so we can push to it and create the PR
+        if "already exists" in err_str.lower() or "reference already exists" in err_str.lower():
+            logger.info("github_branch_already_exists", branch=branch_name)
+            return True
+        logger.warning("github_create_branch_failed", error=err_str)
         return False
 
 
@@ -179,21 +184,36 @@ async def _push_implementation_file(
     pr_body: str,
 ) -> None:
     """Push an IMPLEMENTATION_PLAN.md file to the branch."""
-    push_tool = find_tool(tools, "create_or_update_file") or find_tool(tools, "push_files")
-    if not push_tool:
-        return
+    file_path = f"ai_proposals/{ticket_id}/IMPLEMENTATION_PLAN.md"
+    commit_message = f"chore({ticket_id}): add AI-generated implementation plan"
+
+    # Prefer create_or_update_file (single file, base64 content)
+    create_tool = find_tool(tools, "create_or_update_file")
+    push_tool = find_tool(tools, "push_files")
 
     try:
-        import base64
-        content = base64.b64encode(pr_body.encode()).decode()
-        await push_tool.ainvoke({
-            "owner": owner,
-            "repo": repo,
-            "path": f"ai_proposals/{ticket_id}/IMPLEMENTATION_PLAN.md",
-            "message": f"chore({ticket_id}): add AI-generated implementation plan",
-            "content": content,
-            "branch": branch_name,
-        })
+        if create_tool:
+            import base64
+            content_b64 = base64.b64encode(pr_body.encode()).decode()
+            await create_tool.ainvoke({
+                "owner": owner,
+                "repo": repo,
+                "path": file_path,
+                "message": commit_message,
+                "content": content_b64,
+                "branch": branch_name,
+            })
+        elif push_tool:
+            # push_files expects a 'files' array with raw (non-base64) content
+            await push_tool.ainvoke({
+                "owner": owner,
+                "repo": repo,
+                "branch": branch_name,
+                "message": commit_message,
+                "files": [{"path": file_path, "content": pr_body}],
+            })
+        else:
+            logger.warning("github_push_file_tool_not_found")
     except Exception as exc:
         logger.warning("github_push_file_failed", error=str(exc))
 
@@ -213,7 +233,7 @@ async def _create_pull_request(
     if not create_pr:
         raise RuntimeError("create_pull_request tool not found in GitHub MCP")
 
-    result = await create_pr.ainvoke({
+    raw = await create_pr.ainvoke({
         "owner": owner,
         "repo": repo,
         "title": title,
@@ -222,7 +242,7 @@ async def _create_pull_request(
         "base": base_branch,
         "draft": draft,
     })
-    return result if isinstance(result, dict) else {}
+    return unwrap_tool_result(raw)
 
 
 async def _do_create_pr(state: dict) -> PRCompositionResult:
