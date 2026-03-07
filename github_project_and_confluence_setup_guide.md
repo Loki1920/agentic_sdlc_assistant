@@ -665,12 +665,18 @@ Select-String '"level": "ERROR"' logs\activity.jsonl
 # Terminal KPI summary
 python main.py --mode metrics
 
-# Streamlit visual dashboard (opens browser at http://localhost:8501)
-python -m streamlit run dashboard.py
-
-# Metrics API
+# Start the metrics REST API server (FastAPI on port 8080)
 python main.py --mode metrics-server
-curl http://localhost:8080/metrics
+
+# Fetch metrics as JSON
+curl http://localhost:8080/metrics | python -m json.tool
+
+# Interactive API browser (Swagger UI) — open in browser after starting metrics-server:
+# http://localhost:8080/docs
+
+# Mark a PR as approved/rejected (replace <run_id> from the terminal output)
+curl -X POST http://localhost:8080/pr/<run_id>/approve -H "X-Api-Key: mysecretkey123"
+curl -X POST http://localhost:8080/pr/<run_id>/reject  -H "X-Api-Key: mysecretkey123"
 ```
 
 ---
